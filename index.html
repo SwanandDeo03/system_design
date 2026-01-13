@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>My Notes / Diary</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="app">
+      <header class="app-header">
+        <h1>My Notes</h1>
+        <input
+          id="searchInput"
+          class="search-input"
+          type="text"
+          placeholder="Search notes..."
+        />
+      </header>
+
+      <main class="app-main">
+        <section class="note-editor">
+          <input
+            id="noteTitle"
+            class="note-title-input"
+            type="text"
+            placeholder="Title"
+          />
+          <textarea
+            id="noteContent"
+            class="note-content-input"
+            rows="4"
+            placeholder="Write your note here..."
+          ></textarea>
+          <div class="note-editor-actions">
+            <button id="clearBtn" class="btn btn-secondary">Clear</button>
+            <button id="saveBtn" class="btn btn-primary">Save Note</button>
+          </div>
+        </section>
+
+        <section class="notes-list-section">
+          <div class="notes-list-header">
+            <h2>Your Notes</h2>
+            <select id="sortSelect" class="sort-select">
+              <option value="latest">Latest first</option>
+              <option value="oldest">Oldest first</option>
+              <option value="title">Title A–Z</option>
+            </select>
+          </div>
+          <div id="notesContainer" class="notes-grid"></div>
+          <p id="emptyState" class="empty-state">No notes yet. Start writing!</p>
+        </section>
+      </main>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>
+
+
