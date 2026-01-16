@@ -1,10 +1,15 @@
+// Initialize OpenTelemetry tracing as early as possible
+require('./tracing');
+
 const express = require("express");
 const path = require("path");
 const bodyParser = require("body-parser");
 const { Pool } = require("pg");
+const logger = require("./logger");
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+const metrics = require('./metrics');
 
 /* ================================
    PostgreSQL Connection
@@ -23,22 +28,32 @@ const pool = new Pool({
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname)));
 
+// Metrics: instrument requests (skip the /metrics endpoint itself)
+app.use((req, res, next) => {
+  if (req.path === '/metrics') return next();
+  metrics.middleware(req, res, next);
+});
+
 /* ================================
    Initialize DB Table
 ================================ */
 const initDB = async () => {
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS notes (
-      id UUID PRIMARY KEY,
-      title TEXT,
-      content TEXT,
-      pinned BOOLEAN DEFAULT FALSE,
-      archived BOOLEAN DEFAULT FALSE,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    );
-  `);
-  console.log("PostgreSQL tables ready ✅");
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS notes (
+        id UUID PRIMARY KEY,
+        title TEXT,
+        content TEXT,
+        pinned BOOLEAN DEFAULT FALSE,
+        archived BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+    logger.info("PostgreSQL tables ready ✅");
+  } catch (err) {
+    logger.error("Failed to initialize database", err);
+  }
 };
 
 initDB();
@@ -60,7 +75,7 @@ app.get("/api/notes", async (req, res) => {
     );
     res.json(result.rows);
   } catch (err) {
-    console.error(err);
+    logger.error(err);
     res.status(500).json({ error: "Database error" });
   }
 });
@@ -79,7 +94,7 @@ app.post("/api/notes", async (req, res) => {
 
     res.status(201).json(result.rows[0]);
   } catch (err) {
-    console.error(err);
+    logger.error(err);
     res.status(500).json({ error: "Failed to create note" });
   }
 });
@@ -116,7 +131,7 @@ app.put("/api/notes/:id", async (req, res) => {
 
     res.json(result.rows[0]);
   } catch (err) {
-    console.error(err);
+    logger.error(err);
     res.status(500).json({ error: "Update failed" });
   }
 });
@@ -136,7 +151,7 @@ app.delete("/api/notes/:id", async (req, res) => {
 
     res.status(204).end();
   } catch (err) {
-    console.error(err);
+    logger.error(err);
     res.status(500).json({ error: "Delete failed" });
   }
 });
@@ -144,6 +159,17 @@ app.delete("/api/notes/:id", async (req, res) => {
 /* ================================
    Start Server
 ================================ */
+// Metrics endpoint
+app.get('/metrics', async (req, res) => {
+  try {
+    res.set('Content-Type', metrics.register.contentType);
+    res.end(await metrics.register.metrics());
+  } catch (err) {
+    logger.error('Failed to collect metrics', err);
+    res.status(500).end();
+  }
+});
+
 app.listen(PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
+  logger.info(`🚀 Server running on http://localhost:${PORT}`);
 });

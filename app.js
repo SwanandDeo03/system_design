@@ -105,7 +105,7 @@ function isDateInRange(dateString, range) {
   if (!dateString || !range) return true;
   
   const taskDate = new Date(dateString + "T00:00:00");
-  const today = new Date();
+  const today = new Date(); 
   today.setHours(0, 0, 0, 0);
   
   if (range === "today") {
