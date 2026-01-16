@@ -9,9 +9,10 @@ clients:
   - url: http://loki:3100/loki/api/v1/push
 
 scrape_configs:
-  - job_name: system
+  - job_name: docker-containers
     static_configs:
-      - targets: ['localhost']
+      - targets:
+          - localhost
         labels:
-          job: diary_app_logs
-          __path__: /var/log/diary/*.log
+          job: diary_app
+          __path__: /var/lib/docker/containers/*/*.log
