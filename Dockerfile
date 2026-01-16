@@ -6,14 +6,16 @@ ENV NODE_ENV=production
 # Create app directory
 WORKDIR /usr/src/app
 
-# Install dependencies first (better cache)
+# Copy dependency files first (better caching)
 COPY package.json package-lock.json ./
-RUN npm install --production
+
+# Install ONLY production dependencies (Node 20 safe)
+RUN npm ci --omit=dev
 
 # Copy application source
 COPY . .
 
-# Expose port
+# Expose app port
 EXPOSE 3001
 
 # Start the server
