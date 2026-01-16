@@ -1,17 +1,19 @@
 FROM node:20-alpine
 
+# Set environment
+ENV NODE_ENV=production
+
 # Create app directory
 WORKDIR /usr/src/app
 
-# Install dependencies
-COPY package.json package-lock.json* ./
+# Install dependencies first (better cache)
+COPY package.json package-lock.json ./
 RUN npm install --production
 
-# Copy app source
+# Copy application source
 COPY . .
 
-# Default port and expose
-ENV PORT=3001
+# Expose port
 EXPOSE 3001
 
 # Start the server

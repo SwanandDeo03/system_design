@@ -134,6 +134,37 @@ body {
   line-height: 1.45;
 }
 
+.date-input-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.date-label {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.note-date-input {
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid var(--border-subtle);
+  background: #020617;
+  color: var(--text);
+  padding: 10px 12px;
+  font-size: 0.9rem;
+  outline: none;
+  font-family: inherit;
+}
+
+.note-date-input:focus {
+  border-color: var(--accent);
+  box-shadow:
+    0 0 0 1px rgba(15, 23, 42, 0.9),
+    0 0 0 1px var(--accent-soft);
+}
+
 .note-title-input:focus,
 .note-content-input:focus {
   border-color: var(--accent);
