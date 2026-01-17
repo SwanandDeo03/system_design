@@ -1,37 +1,35 @@
 const { NodeSDK } = require('@opentelemetry/sdk-node');
 const { getNodeAutoInstrumentations } = require('@opentelemetry/auto-instrumentations-node');
 const { OTLPTraceExporter } = require('@opentelemetry/exporter-trace-otlp-http');
-const { resourceFromAttributes } = require('@opentelemetry/resources');
-const { SemanticResourceAttributes } = require('@opentelemetry/semantic-conventions');
 
-const serviceName = process.env.OTEL_SERVICE_NAME || 'simple-diary';
+// Do NOT crash app if OTEL is misconfigured
+if (!process.env.OTEL_EXPORTER_OTLP_ENDPOINT) {
+  console.log('OpenTelemetry disabled (no OTLP endpoint)');
+  module.exports = null;
+  return;
+}
 
-const traceExporter = new OTLPTraceExporter({
-  url: process.env.OTEL_EXPORTER_OTLP_ENDPOINT,
-});
+let sdk;
 
-const resource = resourceFromAttributes({
-  [SemanticResourceAttributes.SERVICE_NAME]: serviceName,
-});
-
-const sdk = new NodeSDK({
-  resource,
-  traceExporter,
-  instrumentations: [getNodeAutoInstrumentations()],
-});
-
-sdk.start()
-  .then(() => {
-    console.log('OpenTelemetry SDK started');
-  })
-  .catch((err) => {
-    console.error('Error starting OpenTelemetry SDK', err);
+try {
+  sdk = new NodeSDK({
+    traceExporter: new OTLPTraceExporter({
+      url: process.env.OTEL_EXPORTER_OTLP_ENDPOINT,
+    }),
+    instrumentations: [getNodeAutoInstrumentations()],
   });
 
-process.on('SIGTERM', () => {
-  sdk.shutdown()
-    .then(() => console.log('OpenTelemetry SDK shut down'))
-    .catch(() => {});
+  sdk.start().then(() => {
+    console.log('OpenTelemetry SDK started');
+  });
+} catch (err) {
+  console.error('OpenTelemetry failed to start:', err);
+}
+
+process.on('SIGTERM', async () => {
+  if (sdk) {
+    await sdk.shutdown().catch(() => {});
+  }
 });
 
 module.exports = sdk;
