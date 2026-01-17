@@ -1,6 +1,19 @@
 // Simple Notes / Diary App with Date Functionality
 
-const STORAGE_KEY = "myNotesApp";
+// Notes storage key will be user-specific and workflow-specific
+function getNotesStorageKey() {
+  // Use workflow storage key if available
+  if (typeof getWorkflowStorageKey === 'function') {
+    return getWorkflowStorageKey();
+  }
+  
+  // Fallback to old method
+  const userId = typeof getCurrentUserId === 'function' ? getCurrentUserId() : null;
+  if (!userId) {
+    throw new Error("User not logged in");
+  }
+  return `notesApp_${userId}`;
+}
 
 let notes = [];
 let currentlyEditingId = null;
@@ -16,11 +29,15 @@ const searchInput = document.getElementById("searchInput");
 const sortSelect = document.getElementById("sortSelect");
 const filterDateSelect = document.getElementById("filterDateSelect");
 const emptyStateEl = document.getElementById("emptyState");
+const exportDateEl = document.getElementById("exportDate");
+const exportPdfBtn = document.getElementById("exportPdfBtn");
+const exportExcelBtn = document.getElementById("exportExcelBtn");
 
-// Load notes from localStorage
+// Load notes from localStorage (user-specific)
 function loadNotes() {
   try {
-    const stored = localStorage.getItem(STORAGE_KEY);
+    const storageKey = getNotesStorageKey();
+    const stored = localStorage.getItem(storageKey);
     notes = stored ? JSON.parse(stored) : [];
     renderNotes();
   } catch (e) {
@@ -30,18 +47,24 @@ function loadNotes() {
   }
 }
 
-// Save notes to localStorage
+// Save notes to localStorage (user-specific)
 function saveNotes() {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(notes));
+    const storageKey = getNotesStorageKey();
+    localStorage.setItem(storageKey, JSON.stringify(notes));
   } catch (e) {
     console.error("Failed to save notes:", e);
     alert("Failed to save notes. Storage may be full.");
   }
 }
 
-// Initialize date input with today's date
-noteDateEl.value = new Date().toISOString().split('T')[0];
+// Initialize date inputs with today's date (only if elements exist)
+if (noteDateEl) {
+  noteDateEl.value = new Date().toISOString().split('T')[0];
+}
+if (exportDateEl) {
+  exportDateEl.value = new Date().toISOString().split('T')[0];
+}
 
 function clearEditor() {
   noteTitleEl.value = "";
@@ -290,32 +313,311 @@ function handleSave() {
   renderNotes();
 }
 
-// Event listeners
-saveBtn.addEventListener("click", handleSave);
-
-clearBtn.addEventListener("click", () => {
-  clearEditor();
-});
-
-searchInput.addEventListener("input", () => {
-  renderNotes();
-});
-
-sortSelect.addEventListener("change", () => {
-  renderNotes();
-});
-
-filterDateSelect.addEventListener("change", () => {
-  renderNotes();
-});
-
-noteContentEl.addEventListener("keydown", (e) => {
-  if (e.ctrlKey && e.key === "Enter") {
-    handleSave();
+// Export Functions
+function getNotesForDate(selectedDate) {
+  if (!selectedDate) {
+    alert("Please select a date to export.");
+    return [];
   }
-});
+  
+  return notes.filter(note => {
+    if (!note.taskDate) return false;
+    return note.taskDate === selectedDate;
+  });
+}
 
-// Init — load from localStorage
-loadNotes();
+function formatDateForDisplay(dateString) {
+  if (!dateString) return "";
+  const d = new Date(dateString + "T00:00:00");
+  return d.toLocaleDateString(undefined, {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+}
+
+function exportToPDF() {
+  const selectedDate = exportDateEl.value;
+  const dayNotes = getNotesForDate(selectedDate);
+  
+  if (dayNotes.length === 0) {
+    alert(`No tasks found for ${formatDateForDisplay(selectedDate)}.`);
+    return;
+  }
+  
+  try {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    
+    // Title with workflow name
+    const workflowName = typeof getCurrentWorkflow === 'function' && getCurrentWorkflow() === 'doctor' 
+      ? "AI Robotics" 
+      : "Office";
+    doc.setFontSize(18);
+    doc.setTextColor(40, 40, 40);
+    doc.text(`${workflowName} - Tasks for ${formatDateForDisplay(selectedDate)}`, 14, 20);
+    
+    // Date info
+    doc.setFontSize(10);
+    doc.setTextColor(100, 100, 100);
+    doc.text(`Exported on: ${new Date().toLocaleString()}`, 14, 28);
+    
+    let yPos = 40;
+    const pageHeight = doc.internal.pageSize.height;
+    const margin = 14;
+    const lineHeight = 8;
+    
+    dayNotes.forEach((note, index) => {
+      // Check if we need a new page
+      if (yPos > pageHeight - 40) {
+        doc.addPage();
+        yPos = 20;
+      }
+      
+      // Task number
+      doc.setFontSize(12);
+      doc.setTextColor(40, 40, 40);
+      doc.setFont(undefined, "bold");
+      doc.text(`Task ${index + 1}:`, margin, yPos);
+      yPos += lineHeight;
+      
+      // Title
+      doc.setFontSize(11);
+      doc.setFont(undefined, "bold");
+      doc.text("Title:", margin, yPos);
+      doc.setFont(undefined, "normal");
+      const titleLines = doc.splitTextToSize(note.title || "Untitled", 180);
+      doc.text(titleLines, margin + 20, yPos);
+      yPos += titleLines.length * lineHeight + 3;
+      
+      // Content
+      doc.setFont(undefined, "bold");
+      doc.text("Content:", margin, yPos);
+      doc.setFont(undefined, "normal");
+      const contentLines = doc.splitTextToSize(note.content || "(Empty note)", 180);
+      doc.text(contentLines, margin + 20, yPos);
+      yPos += contentLines.length * lineHeight + 3;
+      
+      // Status
+      doc.setFontSize(9);
+      doc.setTextColor(120, 120, 120);
+      let status = [];
+      if (note.pinned) status.push("Pinned");
+      if (note.archived) status.push("Archived");
+      if (status.length > 0) {
+        doc.text(`Status: ${status.join(", ")}`, margin, yPos);
+        yPos += lineHeight;
+      }
+      
+      // Created/Updated
+      doc.text(`Created: ${formatDate(note.createdAt)}`, margin, yPos);
+      yPos += lineHeight + 5;
+      
+      // Separator line
+      doc.setDrawColor(200, 200, 200);
+      doc.line(margin, yPos, 200, yPos);
+      yPos += 10;
+    });
+    
+    // Summary
+    doc.setFontSize(10);
+    doc.setTextColor(100, 100, 100);
+    doc.text(`Total Tasks: ${dayNotes.length}`, margin, yPos);
+    
+    // Save PDF with workflow name
+    const workflowPrefix = typeof getCurrentWorkflow === 'function' && getCurrentWorkflow() === 'doctor' 
+      ? "doctor_" 
+      : "office_";
+    const fileName = `${workflowPrefix}tasks_${selectedDate.replace(/-/g, "_")}.pdf`;
+    doc.save(fileName);
+  } catch (error) {
+    console.error("PDF export error:", error);
+    alert("Failed to export PDF. Please check console for details.");
+  }
+}
+
+function exportToExcel() {
+  const selectedDate = exportDateEl.value;
+  const dayNotes = getNotesForDate(selectedDate);
+  
+  if (dayNotes.length === 0) {
+    alert(`No tasks found for ${formatDateForDisplay(selectedDate)}.`);
+    return;
+  }
+  
+  try {
+    // Prepare data for Excel
+    const excelData = dayNotes.map((note, index) => ({
+      "Task #": index + 1,
+      "Title": note.title || "Untitled",
+      "Content": note.content || "(Empty note)",
+      "Task Date": note.taskDate,
+      "Status": [
+        note.pinned ? "Pinned" : "",
+        note.archived ? "Archived" : ""
+      ].filter(s => s).join(", ") || "Active",
+      "Created At": formatDate(note.createdAt),
+      "Updated At": formatDate(note.updatedAt),
+    }));
+    
+    // Create workbook
+    const wb = XLSX.utils.book_new();
+    
+    // Create worksheet from data
+    const ws = XLSX.utils.json_to_sheet(excelData);
+    
+    // Set column widths
+    ws['!cols'] = [
+      { wch: 8 },   // Task #
+      { wch: 25 },  // Title
+      { wch: 40 },  // Content
+      { wch: 12 },  // Task Date
+      { wch: 15 },  // Status
+      { wch: 18 },  // Created At
+      { wch: 18 },  // Updated At
+    ];
+    
+    // Add worksheet to workbook
+    XLSX.utils.book_append_sheet(wb, ws, "Tasks");
+    
+    // Add summary sheet with workflow info
+    const workflowName = typeof getCurrentWorkflow === 'function' && getCurrentWorkflow() === 'doctor' 
+      ? "AI Robotics" 
+      : "Office";
+    const summaryData = [
+      { "Field": "Workflow", "Value": workflowName },
+      { "Field": "Export Date", "Value": formatDateForDisplay(selectedDate) },
+      { "Field": "Total Tasks", "Value": dayNotes.length },
+      { "Field": "Pinned Tasks", "Value": dayNotes.filter(n => n.pinned).length },
+      { "Field": "Archived Tasks", "Value": dayNotes.filter(n => n.archived).length },
+      { "Field": "Active Tasks", "Value": dayNotes.filter(n => !n.archived).length },
+      { "Field": "Exported On", "Value": new Date().toLocaleString() },
+    ];
+    const summaryWs = XLSX.utils.json_to_sheet(summaryData);
+    XLSX.utils.book_append_sheet(wb, summaryWs, "Summary");
+    
+    // Save file with workflow name
+    const workflowPrefix = typeof getCurrentWorkflow === 'function' && getCurrentWorkflow() === 'doctor' 
+      ? "doctor_" 
+      : "office_";
+    const fileName = `${workflowPrefix}tasks_${selectedDate.replace(/-/g, "_")}.xlsx`;
+    XLSX.writeFile(wb, fileName);
+  } catch (error) {
+    console.error("Excel export error:", error);
+    alert("Failed to export Excel. Please check console for details.");
+  }
+}
+
+// Initialize app only when user is logged in
+function initApp() {
+  // Wait for auth to initialize
+  if (typeof getCurrentUserId === 'function' && getCurrentUserId()) {
+    // Initialize date inputs
+    if (noteDateEl) {
+      noteDateEl.value = new Date().toISOString().split('T')[0];
+    }
+    if (exportDateEl) {
+      exportDateEl.value = new Date().toISOString().split('T')[0];
+    }
+    
+    // Reset workflow state when initializing
+    if (typeof getCurrentWorkflow === 'function') {
+      // Ensure we're on office workflow by default
+      const workflow = getCurrentWorkflow();
+      if (workflow === 'doctor') {
+        // If somehow on doctor workflow, reset to office
+        if (typeof switchWorkflow === 'function') {
+          // This will be handled by workflow.js
+        }
+      }
+    }
+    
+    // Load notes
+    loadNotes();
+    
+    // Set up event listeners
+    if (saveBtn) {
+      saveBtn.addEventListener("click", handleSave);
+    }
+    
+    if (clearBtn) {
+      clearBtn.addEventListener("click", () => {
+        clearEditor();
+      });
+    }
+    
+    if (searchInput) {
+      searchInput.addEventListener("input", () => {
+        renderNotes();
+      });
+    }
+    
+    if (sortSelect) {
+      sortSelect.addEventListener("change", () => {
+        renderNotes();
+      });
+    }
+    
+    if (filterDateSelect) {
+      filterDateSelect.addEventListener("change", () => {
+        renderNotes();
+      });
+    }
+    
+    if (noteContentEl) {
+      noteContentEl.addEventListener("keydown", (e) => {
+        if (e.ctrlKey && e.key === "Enter") {
+          handleSave();
+        }
+      });
+    }
+    
+    // Event listeners for export
+    if (exportPdfBtn) {
+      exportPdfBtn.addEventListener("click", exportToPDF);
+    }
+    
+    if (exportExcelBtn) {
+      exportExcelBtn.addEventListener("click", exportToExcel);
+    }
+    
+    // Ensure workflow event listeners are set up
+    setTimeout(() => {
+      if (typeof setupWorkflowEventListeners === 'function') {
+        setupWorkflowEventListeners();
+      }
+    }, 100);
+  }
+}
+
+// Make initApp globally accessible
+window.initApp = initApp;
+
+// Wait for DOM and auth to be ready
+// Note: initApp will be called by auth.js when user is logged in
+// This is just a fallback in case auth.js hasn't loaded yet
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => {
+    // Check if user is already logged in and app needs initialization
+    setTimeout(() => {
+      if (typeof getCurrentUserId === 'function' && getCurrentUserId()) {
+        const mainApp = document.getElementById("mainApp");
+        if (mainApp && mainApp.style.display !== 'none') {
+          initApp();
+        }
+      }
+    }, 200);
+  });
+} else {
+  setTimeout(() => {
+    if (typeof getCurrentUserId === 'function' && getCurrentUserId()) {
+      const mainApp = document.getElementById("mainApp");
+      if (mainApp && mainApp.style.display !== 'none') {
+        initApp();
+      }
+    }
+  }, 200);
+}
 
 
