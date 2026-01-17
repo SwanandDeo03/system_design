@@ -18,6 +18,11 @@ function initAuth() {
 
 // Hash password using Web Crypto API
 async function hashPassword(password) {
+  if (typeof crypto === 'undefined' || !crypto.subtle) {
+    console.error('Web Crypto API not available. Password hashing will fail in insecure contexts.');
+    throw new Error('Web Crypto API not available. Use HTTPS or localhost.');
+  }
+
   const encoder = new TextEncoder();
   const data = encoder.encode(password);
   const hashBuffer = await crypto.subtle.digest('SHA-256', data);
@@ -166,6 +171,7 @@ async function register(name, email, password, passwordConfirm) {
   };
   setSession(sessionUser);
   
+  console.debug('Registered user:', { email: newUser.email, id: newUser.id });
   return { success: true, user: sessionUser };
 }
 
@@ -210,6 +216,7 @@ async function login(email, password) {
   };
   setSession(sessionUser);
   
+  console.debug('Login successful for:', { email: user.email, id: user.id });
   return { success: true, user: sessionUser };
 }
 
@@ -263,13 +270,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const errorEl = document.getElementById("loginError");
     
     errorEl.textContent = "";
-    
-    const result = await login(email, password);
-    if (result.success) {
-      showMainApp();
-      loginForm.reset();
-    } else {
-      errorEl.textContent = result.error;
+    try {
+      const result = await login(email, password);
+      if (result.success) {
+        showMainApp();
+        loginForm.reset();
+      } else {
+        errorEl.textContent = result.error;
+      }
+    } catch (err) {
+      console.error('Login failed with exception:', err);
+      errorEl.textContent = err.message || 'Login failed';
     }
   });
   
@@ -283,13 +294,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const errorEl = document.getElementById("registerError");
     
     errorEl.textContent = "";
-    
-    const result = await register(name, email, password, passwordConfirm);
-    if (result.success) {
-      showMainApp();
-      registerForm.reset();
-    } else {
-      errorEl.textContent = result.error;
+    try {
+      const result = await register(name, email, password, passwordConfirm);
+      if (result.success) {
+        showMainApp();
+        registerForm.reset();
+      } else {
+        errorEl.textContent = result.error;
+      }
+    } catch (err) {
+      console.error('Register failed with exception:', err);
+      errorEl.textContent = err.message || 'Registration failed';
     }
   });
   
