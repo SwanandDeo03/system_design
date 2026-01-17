@@ -6,14 +6,56 @@ const SESSION_STORAGE_KEY = "notesAppSession";
 let currentUser = null;
 
 // Initialize - check if user is logged in
-function initAuth() {
+async function initAuth() {
+  // First check server session
+  try {
+    const response = await fetch('/api/auth/me', {
+      credentials: 'include'
+    });
+
+    if (response.ok) {
+      const result = await response.json();
+      if (result.user) {
+        currentUser = result.user;
+        setSession(result.user); // Sync local session
+        showMainApp();
+        return;
+      }
+    }
+  } catch (err) {
+    console.error('Session check error:', err);
+    // Server might be unavailable or CORS issue - check local session as fallback
+  }
+
+  // No valid server session - check local session as fallback
   const session = getSession();
   if (session) {
-    currentUser = session;
-    showMainApp();
-  } else {
-    showAuthScreen();
+    // Try to verify with server, but if it fails, still use local session
+    // (useful during development or if server is temporarily down)
+    try {
+      const response = await fetch('/api/auth/me', { credentials: 'include' });
+      if (response.ok) {
+        const result = await response.json();
+        if (result.user) {
+          currentUser = result.user;
+          setSession(result.user);
+          showMainApp();
+          return;
+        }
+      }
+      // Server says no valid session - clear local session
+      clearSession();
+    } catch (err) {
+      // Server unavailable - use local session (development mode)
+      console.warn('Server unavailable, using local session:', err);
+      currentUser = session;
+      showMainApp();
+      return;
+    }
   }
+
+  // No valid session found - show auth screen
+  showAuthScreen();
 }
 
 // Hash password using Web Crypto API
@@ -140,39 +182,39 @@ async function register(name, email, password, passwordConfirm) {
     return { success: false, error: "Passwords do not match." };
   }
   
-  // Check if user already exists
-  const users = getUsers();
-  if (users[email]) {
-    return { success: false, error: "Email already registered. Please login." };
+  try {
+    // Call backend API
+    const response = await fetch('/api/auth/register', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include', // Important for sessions
+      body: JSON.stringify({
+        name: name.trim(),
+        email: email.toLowerCase().trim(),
+        password: password,
+        passwordConfirm: passwordConfirm
+      })
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      return { success: false, error: result.error || "Registration failed." };
+    }
+
+    // Set session locally
+    if (result.user) {
+      setSession(result.user);
+      console.debug('Registered user:', { email: result.user.email, id: result.user.id });
+    }
+
+    return { success: true, user: result.user };
+  } catch (err) {
+    console.error('Registration error:', err);
+    return { success: false, error: "Failed to connect to server. Please try again." };
   }
-  
-  // Hash password
-  const hashedPassword = await hashPassword(password);
-  
-  // Create user
-  const userId = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-  const newUser = {
-    id: userId,
-    name: name.trim(),
-    email: email.toLowerCase().trim(),
-    password: hashedPassword,
-    createdAt: new Date().toISOString()
-  };
-  
-  // Save user
-  users[email.toLowerCase().trim()] = newUser;
-  saveUsers(users);
-  
-  // Set session (without password)
-  const sessionUser = {
-    id: newUser.id,
-    name: newUser.name,
-    email: newUser.email
-  };
-  setSession(sessionUser);
-  
-  console.debug('Registered user:', { email: newUser.email, id: newUser.id });
-  return { success: true, user: sessionUser };
 }
 
 // Login user
@@ -182,46 +224,52 @@ async function login(email, password) {
     return { success: false, error: "Email and password are required." };
   }
   
-  // Get user
-  const users = getUsers();
-  let user = users[email.toLowerCase().trim()];
+  try {
+    // Call backend API
+    const response = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include', // Important for sessions
+      body: JSON.stringify({
+        email: email.toLowerCase().trim(),
+        password: password
+      })
+    });
 
-  // Fallback: some stored data may not use email-as-key. Try to find by scanning values.
-  if (!user) {
-    const target = email.toLowerCase().trim();
-    for (const k of Object.keys(users || {})) {
-      const candidate = users[k];
-      if (candidate && candidate.email && candidate.email.toLowerCase().trim() === target) {
-        user = candidate;
-        break;
-      }
+    const result = await response.json();
+
+    if (!response.ok) {
+      return { success: false, error: result.error || "Login failed." };
     }
-  }
 
-  if (!user) {
-    return { success: false, error: "Invalid email or password." };
+    // Set session locally
+    if (result.user) {
+      setSession(result.user);
+      console.debug('Login successful for:', { email: result.user.email, id: result.user.id });
+    }
+
+    return { success: true, user: result.user };
+  } catch (err) {
+    console.error('Login error:', err);
+    return { success: false, error: "Failed to connect to server. Please try again." };
   }
-  
-  // Verify password
-  const hashedPassword = await hashPassword(password);
-  if (user.password !== hashedPassword) {
-    return { success: false, error: "Invalid email or password." };
-  }
-  
-  // Set session (without password)
-  const sessionUser = {
-    id: user.id,
-    name: user.name,
-    email: user.email
-  };
-  setSession(sessionUser);
-  
-  console.debug('Login successful for:', { email: user.email, id: user.id });
-  return { success: true, user: sessionUser };
 }
 
 // Logout
-function logout() {
+async function logout() {
+  try {
+    // Call backend API to destroy session
+    await fetch('/api/auth/logout', {
+      method: 'POST',
+      credentials: 'include'
+    });
+  } catch (err) {
+    console.error('Logout API error:', err);
+    // Continue with local logout even if API fails
+  }
+  
   clearSession();
   showAuthScreen();
   
@@ -318,6 +366,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
   
-  // Initialize auth
-  initAuth();
+  // Initialize auth (async)
+  initAuth().catch(err => {
+    console.error('Auth initialization error:', err);
+  });
 });
