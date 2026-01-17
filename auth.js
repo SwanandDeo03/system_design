@@ -178,8 +178,20 @@ async function login(email, password) {
   
   // Get user
   const users = getUsers();
-  const user = users[email.toLowerCase().trim()];
-  
+  let user = users[email.toLowerCase().trim()];
+
+  // Fallback: some stored data may not use email-as-key. Try to find by scanning values.
+  if (!user) {
+    const target = email.toLowerCase().trim();
+    for (const k of Object.keys(users || {})) {
+      const candidate = users[k];
+      if (candidate && candidate.email && candidate.email.toLowerCase().trim() === target) {
+        user = candidate;
+        break;
+      }
+    }
+  }
+
   if (!user) {
     return { success: false, error: "Invalid email or password." };
   }
