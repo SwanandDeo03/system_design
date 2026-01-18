@@ -86,18 +86,16 @@ async function switchWorkflow() {
   console.log("switchWorkflow called. Current workflow:", currentWorkflow, "Unlocked:", doctorWorkflowUnlocked);
   
   if (currentWorkflow === WORKFLOW_OFFICE) {
-    // Switching to AI Robotics - requires passkey if not unlocked
-    if (!doctorWorkflowUnlocked) {
-      console.log("Showing passkey modal");
-      showPasskeyModal();
-      return;
-    }
-    // Already unlocked, switch directly
-    currentWorkflow = WORKFLOW_DOCTOR;
-    console.log("Switched to AI_Robotics workflow");
+    // Switching to AI Robotics - always requires access key
+    // Reset unlock state when switching from Office to ensure access key is always asked
+    doctorWorkflowUnlocked = false;
+    console.log("Showing access key modal for AI Robotics");
+    showPasskeyModal();
+    return;
   } else {
-    // Switching to Office - no passkey needed, switch directly
+    // Switching to Office - no access key needed, switch directly
     currentWorkflow = WORKFLOW_OFFICE;
+    doctorWorkflowUnlocked = false; // Reset unlock state when switching back to Office
     console.log("Switched to Office workflow");
   }
   
@@ -151,9 +149,9 @@ function updateWorkflowUI() {
       workflowNameEl.className = "workflow-name workflow-office";
       console.log("UI updated to Office workflow");
     } else if (currentWorkflow === WORKFLOW_DOCTOR) {
-      workflowNameEl.textContent = "AI_Robotics";
+      workflowNameEl.textContent = "AI_Robotics Project";
       workflowNameEl.className = "workflow-name workflow-doctor";
-      console.log("UI updated to AI_Robotics workflow");
+      console.log("UI updated to AI_Robotics Project workflow");
     }
   } else {
     console.warn("Workflow name element not found");
@@ -278,21 +276,21 @@ async function initWorkflow() {
           loadNotes();
         }
         
-        console.log("Successfully switched to AI_Robotics workflow. Current workflow:", currentWorkflow);
+        console.log("Successfully switched to AI_Robotics Project workflow. Current workflow:", currentWorkflow);
         
         // Double-check UI was updated
         setTimeout(() => {
           const workflowNameEl = document.getElementById("workflowName");
           if (workflowNameEl) {
             console.log("Workflow name element text:", workflowNameEl.textContent);
-            if (workflowNameEl.textContent !== "AI_Robotics") {
+            if (workflowNameEl.textContent !== "AI_Robotics Project") {
               console.warn("UI not updated correctly, forcing update");
               updateWorkflowUI();
             }
           }
         }, 100);
       } else {
-        errorEl.textContent = "Incorrect passkey. Please try again.";
+        errorEl.textContent = "Incorrect access key. Please try again.";
         passkeyInput.value = "";
         setTimeout(() => passkeyInput.focus(), 100);
       }
