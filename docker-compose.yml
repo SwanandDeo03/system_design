@@ -59,14 +59,15 @@ services:
     restart: unless-stopped
 
   promtail:
-    image: grafana/promtail:2.6.1
-    container_name: promtail
-    volumes:
-      - /var/lib/docker/containers:/var/lib/docker/containers:ro
-      - /var/run/docker.sock:/var/run/docker.sock
-      - ./monitoring/promtail-config.yaml:/etc/promtail/promtail-config.yaml:ro
-    command: -config.file=/etc/promtail/promtail-config.yaml
-    restart: unless-stopped
+  image: grafana/promtail:2.6.1
+  container_name: promtail
+  volumes:
+    - /var/lib/docker/containers:/var/lib/docker/containers:ro
+    - /var/run/docker.sock:/var/run/docker.sock
+    - ./monitoring/promtail-config.yaml:/etc/promtail/promtail-config.yaml:ro
+  command: -config.file=/etc/promtail/promtail-config.yaml
+  restart: unless-stopped
+
 
   tempo:
     image: grafana/tempo:2.4.0
