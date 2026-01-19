@@ -1,3 +1,5 @@
+version: "3.8"
+
 services:
   web:
     build: .
@@ -14,9 +16,6 @@ services:
       DB_NAME: diarydb
       OTEL_SERVICE_NAME: simple-diary
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318/v1/traces
-    volumes:
-      - ./data:/usr/src/app/data
-      - ./logs:/usr/src/app/logs
     depends_on:
       - db
     restart: unless-stopped
@@ -57,7 +56,6 @@ services:
     container_name: loki
     ports:
       - "3100:3100"
-    command: -config.file=/etc/loki/local-config.yaml
     restart: unless-stopped
 
   promtail:
@@ -71,24 +69,22 @@ services:
     restart: unless-stopped
 
   tempo:
-  image: grafana/tempo:2.4.0
-  container_name: tempo
-  command:
-    - "-config.file=/etc/tempo/tempo.yaml"
-  volumes:
-    - ./monitoring/tempo.yaml:/etc/tempo/tempo.yaml:ro
-  ports:
-    - "3200:3200"   # Grafana reads traces
-    - "9411:9411"   # Zipkin ingest
-  restart: unless-stopped
-
+    image: grafana/tempo:2.4.0
+    container_name: tempo
+    command: ["-config.file=/etc/tempo/tempo.yaml"]
+    volumes:
+      - ./monitoring/tempo.yaml:/etc/tempo/tempo.yaml:ro
+    ports:
+      - "3200:3200"
+      - "9411:9411"
+    restart: unless-stopped
 
   otel-collector:
     image: otel/opentelemetry-collector:0.79.0
     container_name: otel-collector
+    command: ["--config", "/etc/otel-collector-config.yaml"]
     volumes:
       - ./monitoring/otel-collector-config.yaml:/etc/otel-collector-config.yaml:ro
-    command: ["--config", "/etc/otel-collector-config.yaml"]
     ports:
       - "4318:4318"
     restart: unless-stopped
