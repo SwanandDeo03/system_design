@@ -59,21 +59,21 @@ services:
     restart: unless-stopped
 
   promtail:
-  image: grafana/promtail:2.6.1
-  container_name: promtail
-  volumes:
-    - /var/lib/docker/containers:/var/lib/docker/containers:ro
-    - /var/run/docker.sock:/var/run/docker.sock
-    - ./monitoring/promtail-config.yaml:/etc/promtail/promtail-config.yaml:ro
-  command:
-    - "-config.file=/etc/promtail/promtail-config.yaml"
-  restart: unless-stopped
-
+    image: grafana/promtail:2.6.1
+    container_name: promtail
+    volumes:
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./monitoring/promtail-config.yaml:/etc/promtail/promtail-config.yaml:ro
+    command:
+      - "-config.file=/etc/promtail/promtail-config.yaml"
+    restart: unless-stopped
 
   tempo:
     image: grafana/tempo:2.4.0
     container_name: tempo
-    command: ["-config.file=/etc/tempo/tempo.yaml"]
+    command:
+      - "-config.file=/etc/tempo/tempo.yaml"
     volumes:
       - ./monitoring/tempo.yaml:/etc/tempo/tempo.yaml:ro
     ports:
@@ -84,7 +84,8 @@ services:
   otel-collector:
     image: otel/opentelemetry-collector:0.79.0
     container_name: otel-collector
-    command: ["--config", "/etc/otel-collector-config.yaml"]
+    command:
+      - "--config=/etc/otel-collector-config.yaml"
     volumes:
       - ./monitoring/otel-collector-config.yaml:/etc/otel-collector-config.yaml:ro
     ports:
