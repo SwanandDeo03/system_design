@@ -65,7 +65,8 @@ services:
     - /var/lib/docker/containers:/var/lib/docker/containers:ro
     - /var/run/docker.sock:/var/run/docker.sock
     - ./monitoring/promtail-config.yaml:/etc/promtail/promtail-config.yaml:ro
-  command: -config.file=/etc/promtail/promtail-config.yaml
+  command:
+    - "-config.file=/etc/promtail/promtail-config.yaml"
   restart: unless-stopped
 
 
