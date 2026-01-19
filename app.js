@@ -250,6 +250,26 @@ function renderNotes() {
       renderNotes();
     });
 
+    // Export to PDF button for single note
+    const exportPdfBtn = document.createElement("button");
+    exportPdfBtn.className = "icon-btn";
+    exportPdfBtn.textContent = "📄 PDF";
+    exportPdfBtn.title = "Export this task to PDF";
+    exportPdfBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      exportSingleNoteToPDF(note);
+    });
+
+    // Export to Excel button for single note
+    const exportExcelBtn = document.createElement("button");
+    exportExcelBtn.className = "icon-btn";
+    exportExcelBtn.textContent = "📊 Excel";
+    exportExcelBtn.title = "Export this task to Excel";
+    exportExcelBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      exportSingleNoteToExcel(note);
+    });
+
     const deleteBtn = document.createElement("button");
     deleteBtn.className = "icon-btn danger";
     deleteBtn.textContent = "Delete";
@@ -263,6 +283,8 @@ function renderNotes() {
 
     actions.appendChild(pinBtn);
     actions.appendChild(archiveBtn);
+    actions.appendChild(exportPdfBtn);
+    actions.appendChild(exportExcelBtn);
     actions.appendChild(deleteBtn);
 
     footer.appendChild(meta);
@@ -502,6 +524,165 @@ function exportToExcel() {
       ? "doctor_" 
       : "office_";
     const fileName = `${workflowPrefix}tasks_${selectedDate.replace(/-/g, "_")}.xlsx`;
+    XLSX.writeFile(wb, fileName);
+  } catch (error) {
+    console.error("Excel export error:", error);
+    alert("Failed to export Excel. Please check console for details.");
+  }
+}
+
+// Export single note to PDF
+function exportSingleNoteToPDF(note) {
+  if (!note) {
+    alert("No note selected for export.");
+    return;
+  }
+  
+  try {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    
+    // Title with workflow name
+    const workflowName = typeof getCurrentWorkflow === 'function' && getCurrentWorkflow() === 'doctor' 
+      ? "AI Robotics" 
+      : "Office";
+    doc.setFontSize(18);
+    doc.setTextColor(40, 40, 40);
+    doc.text(`${workflowName} - Task`, 14, 20);
+    
+    // Date info
+    doc.setFontSize(10);
+    doc.setTextColor(100, 100, 100);
+    doc.text(`Exported on: ${new Date().toLocaleString()}`, 14, 28);
+    
+    let yPos = 40;
+    const pageHeight = doc.internal.pageSize.height;
+    const margin = 14;
+    const lineHeight = 8;
+    
+    // Check if we need a new page
+    if (yPos > pageHeight - 40) {
+      doc.addPage();
+      yPos = 20;
+    }
+    
+    // Title
+    doc.setFontSize(12);
+    doc.setTextColor(40, 40, 40);
+    doc.setFont(undefined, "bold");
+    doc.text("Title:", margin, yPos);
+    doc.setFont(undefined, "normal");
+    const titleLines = doc.splitTextToSize(note.title || "Untitled", 180);
+    doc.text(titleLines, margin + 20, yPos);
+    yPos += titleLines.length * lineHeight + 5;
+    
+    // Content
+    doc.setFont(undefined, "bold");
+    doc.text("Content:", margin, yPos);
+    doc.setFont(undefined, "normal");
+    const contentLines = doc.splitTextToSize(note.content || "(Empty note)", 180);
+    doc.text(contentLines, margin + 20, yPos);
+    yPos += contentLines.length * lineHeight + 5;
+    
+    // Task Date
+    doc.setFont(undefined, "bold");
+    doc.text("Task Date:", margin, yPos);
+    doc.setFont(undefined, "normal");
+    doc.text(note.taskDate ? formatDateForDisplay(note.taskDate) : "No date", margin + 35, yPos);
+    yPos += lineHeight + 3;
+    
+    // Status
+    doc.setFontSize(9);
+    doc.setTextColor(120, 120, 120);
+    let status = [];
+    if (note.pinned) status.push("Pinned");
+    if (note.archived) status.push("Archived");
+    if (status.length > 0) {
+      doc.text(`Status: ${status.join(", ")}`, margin, yPos);
+      yPos += lineHeight;
+    }
+    
+    // Created/Updated
+    doc.text(`Created: ${formatDate(note.createdAt)}`, margin, yPos);
+    yPos += lineHeight;
+    doc.text(`Updated: ${formatDate(note.updatedAt)}`, margin, yPos);
+    
+    // Save PDF with workflow name
+    const workflowPrefix = typeof getCurrentWorkflow === 'function' && getCurrentWorkflow() === 'doctor' 
+      ? "doctor_" 
+      : "office_";
+    const safeTitle = (note.title || "untitled").replace(/[^a-z0-9]/gi, '_').substring(0, 30);
+    const fileName = `${workflowPrefix}task_${safeTitle}_${note.id.substring(0, 8)}.pdf`;
+    doc.save(fileName);
+  } catch (error) {
+    console.error("PDF export error:", error);
+    alert("Failed to export PDF. Please check console for details.");
+  }
+}
+
+// Export single note to Excel
+function exportSingleNoteToExcel(note) {
+  if (!note) {
+    alert("No note selected for export.");
+    return;
+  }
+  
+  try {
+    // Prepare data for Excel
+    const excelData = [{
+      "Title": note.title || "Untitled",
+      "Content": note.content || "(Empty note)",
+      "Task Date": note.taskDate || "No date",
+      "Status": [
+        note.pinned ? "Pinned" : "",
+        note.archived ? "Archived" : ""
+      ].filter(s => s).join(", ") || "Active",
+      "Created At": formatDate(note.createdAt),
+      "Updated At": formatDate(note.updatedAt),
+    }];
+    
+    // Create workbook
+    const wb = XLSX.utils.book_new();
+    
+    // Create worksheet from data
+    const ws = XLSX.utils.json_to_sheet(excelData);
+    
+    // Set column widths
+    ws['!cols'] = [
+      { wch: 30 },  // Title
+      { wch: 50 },  // Content
+      { wch: 15 },  // Task Date
+      { wch: 15 },  // Status
+      { wch: 18 },  // Created At
+      { wch: 18 },  // Updated At
+    ];
+    
+    // Add worksheet to workbook
+    XLSX.utils.book_append_sheet(wb, ws, "Task");
+    
+    // Add summary sheet with workflow info
+    const workflowName = typeof getCurrentWorkflow === 'function' && getCurrentWorkflow() === 'doctor' 
+      ? "AI Robotics" 
+      : "Office";
+    const summaryData = [
+      { "Field": "Workflow", "Value": workflowName },
+      { "Field": "Title", "Value": note.title || "Untitled" },
+      { "Field": "Task Date", "Value": note.taskDate ? formatDateForDisplay(note.taskDate) : "No date" },
+      { "Field": "Status", "Value": [
+        note.pinned ? "Pinned" : "",
+        note.archived ? "Archived" : ""
+      ].filter(s => s).join(", ") || "Active" },
+      { "Field": "Exported On", "Value": new Date().toLocaleString() },
+    ];
+    const summaryWs = XLSX.utils.json_to_sheet(summaryData);
+    XLSX.utils.book_append_sheet(wb, summaryWs, "Summary");
+    
+    // Save file with workflow name
+    const workflowPrefix = typeof getCurrentWorkflow === 'function' && getCurrentWorkflow() === 'doctor' 
+      ? "doctor_" 
+      : "office_";
+    const safeTitle = (note.title || "untitled").replace(/[^a-z0-9]/gi, '_').substring(0, 30);
+    const fileName = `${workflowPrefix}task_${safeTitle}_${note.id.substring(0, 8)}.xlsx`;
     XLSX.writeFile(wb, fileName);
   } catch (error) {
     console.error("Excel export error:", error);
