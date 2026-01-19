@@ -102,10 +102,7 @@
         <div class="header-left">
           <h1>My Notes</h1>
           <div class="workflow-indicator">
-            <span id="workflowName" class="workflow-name">Office</span>
-            <button id="switchWorkflowBtn" class="btn-workflow-switch" title="Switch Workflow (Secret: Press 'W' key)">
-              🔄
-            </button>
+            <span id="workflowName" class="workflow-name">AI_Robotics Project</span>
           </div>
         </div>
         <div class="header-right">
@@ -192,31 +189,6 @@
       </main>
     </div>
 
-    <!-- Access Key Modal for AI Robotics Workflow -->
-    <div id="passkeyModal" class="modal-overlay" style="display: none;">
-      <div class="modal-content">
-        <h2 class="modal-title">🔒 Access AI Robotics</h2>
-        <p class="modal-subtitle">Enter access key to switch to AI_Robotics Project notes</p>
-        <form id="passkeyForm" class="modal-form">
-          <div class="form-group">
-            <label for="passkeyInput">Access Key</label>
-            <input
-              id="passkeyInput"
-              type="password"
-              class="form-input"
-              placeholder="Enter access key"
-              required
-              autofocus
-            />
-          </div>
-          <div class="modal-actions">
-            <button type="button" id="cancelPasskeyBtn" class="btn btn-secondary">Cancel</button>
-            <button type="submit" class="btn btn-primary">Access</button>
-          </div>
-          <p id="passkeyError" class="error-message"></p>
-        </form>
-      </div>
-    </div>
 
     <script src="auth.js"></script>
     <script src="workflow.js"></script>

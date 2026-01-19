@@ -373,9 +373,7 @@ function exportToPDF() {
     const doc = new jsPDF();
     
     // Title with workflow name
-    const workflowName = typeof getCurrentWorkflow === 'function' && getCurrentWorkflow() === 'doctor' 
-      ? "AI Robotics" 
-      : "Office";
+    const workflowName = "AI Robotics";
     doc.setFontSize(18);
     doc.setTextColor(40, 40, 40);
     doc.text(`${workflowName} - Tasks for ${formatDateForDisplay(selectedDate)}`, 14, 20);
@@ -448,9 +446,7 @@ function exportToPDF() {
     doc.text(`Total Tasks: ${dayNotes.length}`, margin, yPos);
     
     // Save PDF with workflow name
-    const workflowPrefix = typeof getCurrentWorkflow === 'function' && getCurrentWorkflow() === 'doctor' 
-      ? "doctor_" 
-      : "office_";
+    const workflowPrefix = "ai_robotics_";
     const fileName = `${workflowPrefix}tasks_${selectedDate.replace(/-/g, "_")}.pdf`;
     doc.save(fileName);
   } catch (error) {
@@ -520,9 +516,7 @@ function exportToExcel() {
     XLSX.utils.book_append_sheet(wb, summaryWs, "Summary");
     
     // Save file with workflow name
-    const workflowPrefix = typeof getCurrentWorkflow === 'function' && getCurrentWorkflow() === 'doctor' 
-      ? "doctor_" 
-      : "office_";
+    const workflowPrefix = "ai_robotics_";
     const fileName = `${workflowPrefix}tasks_${selectedDate.replace(/-/g, "_")}.xlsx`;
     XLSX.writeFile(wb, fileName);
   } catch (error) {
@@ -543,9 +537,7 @@ function exportSingleNoteToPDF(note) {
     const doc = new jsPDF();
     
     // Title with workflow name
-    const workflowName = typeof getCurrentWorkflow === 'function' && getCurrentWorkflow() === 'doctor' 
-      ? "AI Robotics" 
-      : "Office";
+    const workflowName = "AI Robotics";
     doc.setFontSize(18);
     doc.setTextColor(40, 40, 40);
     doc.text(`${workflowName} - Task`, 14, 20);
@@ -608,9 +600,7 @@ function exportSingleNoteToPDF(note) {
     doc.text(`Updated: ${formatDate(note.updatedAt)}`, margin, yPos);
     
     // Save PDF with workflow name
-    const workflowPrefix = typeof getCurrentWorkflow === 'function' && getCurrentWorkflow() === 'doctor' 
-      ? "doctor_" 
-      : "office_";
+    const workflowPrefix = "ai_robotics_";
     const safeTitle = (note.title || "untitled").replace(/[^a-z0-9]/gi, '_').substring(0, 30);
     const fileName = `${workflowPrefix}task_${safeTitle}_${note.id.substring(0, 8)}.pdf`;
     doc.save(fileName);
@@ -661,9 +651,7 @@ function exportSingleNoteToExcel(note) {
     XLSX.utils.book_append_sheet(wb, ws, "Task");
     
     // Add summary sheet with workflow info
-    const workflowName = typeof getCurrentWorkflow === 'function' && getCurrentWorkflow() === 'doctor' 
-      ? "AI Robotics" 
-      : "Office";
+    const workflowName = "AI Robotics";
     const summaryData = [
       { "Field": "Workflow", "Value": workflowName },
       { "Field": "Title", "Value": note.title || "Untitled" },
@@ -678,9 +666,7 @@ function exportSingleNoteToExcel(note) {
     XLSX.utils.book_append_sheet(wb, summaryWs, "Summary");
     
     // Save file with workflow name
-    const workflowPrefix = typeof getCurrentWorkflow === 'function' && getCurrentWorkflow() === 'doctor' 
-      ? "doctor_" 
-      : "office_";
+    const workflowPrefix = "ai_robotics_";
     const safeTitle = (note.title || "untitled").replace(/[^a-z0-9]/gi, '_').substring(0, 30);
     const fileName = `${workflowPrefix}task_${safeTitle}_${note.id.substring(0, 8)}.xlsx`;
     XLSX.writeFile(wb, fileName);
@@ -702,17 +688,7 @@ function initApp() {
       exportDateEl.value = new Date().toISOString().split('T')[0];
     }
     
-    // Reset workflow state when initializing
-    if (typeof getCurrentWorkflow === 'function') {
-      // Ensure we're on office workflow by default
-      const workflow = getCurrentWorkflow();
-      if (workflow === 'doctor') {
-        // If somehow on doctor workflow, reset to office
-        if (typeof switchWorkflow === 'function') {
-          // This will be handled by workflow.js
-        }
-      }
-    }
+    // Workflow is always AI_Robotics Project - no need to reset
     
     // Load notes
     loadNotes();
