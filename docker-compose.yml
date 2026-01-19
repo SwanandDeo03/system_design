@@ -71,12 +71,17 @@ services:
     restart: unless-stopped
 
   tempo:
-    image: grafana/tempo:2.4.0
-    container_name: tempo
-    ports:
-      - "9411:9411"
-      - "3200:3200"
-    restart: unless-stopped
+  image: grafana/tempo:2.4.0
+  container_name: tempo
+  command:
+    - "-config.file=/etc/tempo/tempo.yaml"
+  volumes:
+    - ./monitoring/tempo.yaml:/etc/tempo/tempo.yaml:ro
+  ports:
+    - "3200:3200"   # Grafana reads traces
+    - "9411:9411"   # Zipkin ingest
+  restart: unless-stopped
+
 
   otel-collector:
     image: otel/opentelemetry-collector:0.79.0
