@@ -71,6 +71,11 @@ body {
   border: 1px solid rgba(148, 163, 184, 0.2);
 }
 
+/* Hide workflow chip when not needed */
+.workflow-indicator {
+  display: none;
+}
+
 .workflow-name {
   font-size: 0.85rem;
   font-weight: 600;
